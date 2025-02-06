@@ -104,3 +104,4 @@ Follow these steps to set up the project on your local machine:
    - Choose `Load unpacked`
    - Select the project
    - Enable the extension
+   - Go to `https://epos.erply.com/`
