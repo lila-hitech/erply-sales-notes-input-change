@@ -1,0 +1,240 @@
+// First, read the Choices.js content and inject it directly
+async function injectChoicesLibrary() {
+  try {
+    const response = await fetch(
+      chrome.runtime.getURL("assets/choices.min.js")
+    );
+    const choicesCode = await response.text();
+
+    // Inject Choices.js code directly
+    const script = document.createElement("script");
+    script.textContent =
+      choicesCode +
+      `
+        // Store Choices in a global variable
+        window.ChoicesLibrary = Choices;
+      `;
+    (document.head || document.documentElement).appendChild(script);
+
+    return true;
+  } catch (error) {
+    console.error("Failed to inject Choices library:", error);
+    return false;
+  }
+}
+
+// Function to inject CSS
+function loadChoicesCSS() {
+  if (!document.querySelector('link[href*="choices.min.css"]')) {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = chrome.runtime.getURL("assets/choices.min.css");
+    document.head.appendChild(link);
+  }
+}
+
+function injectCustomStyles() {
+  const style = document.createElement("style");
+  style.textContent = `
+      /* Target the Choices container to ensure full width */
+  .choices {
+    width: 100%;
+    color: black;
+  }
+    `;
+  document.head.appendChild(style);
+}
+
+// Call this function when initializing or with your existing initialization logic
+injectCustomStyles();
+
+// Function to inject initialization code
+function injectInitializationCode() {
+  const initScript = document.createElement("script");
+  initScript.textContent = `
+      function initializeChoices() {
+        if (!window.ChoicesLibrary) {
+          console.error('Choices library not available');
+          return;
+        }
+  
+        const selects = document.querySelectorAll("#modals select.form-control");
+        
+        selects.forEach((select, index) => {
+          try {
+            if (select.choicesInstance) {
+              select.choicesInstance.destroy();
+            }
+            
+            const instance = new window.ChoicesLibrary(select, {
+              searchEnabled: true,
+              searchPlaceholderValue: 'Type to search...',
+              removeItemButton: true,
+              searchFields: ['label', 'value'],
+              searchResultLimit: 10,
+              position: 'bottom',
+              shouldSort: false,
+              searchChoices: true,
+              itemSelectText: '',
+              noChoicesText: 'No options available',
+              noResultsText: 'No results found',
+              callbackOnInit: function() {
+                console.log('Choices initialized for:', select.id);
+              }
+            });
+            
+            select.choicesInstance = instance;
+            
+            // Force a refresh of the dropdown
+            setTimeout(() => {
+              instance.refresh();
+            }, 100);
+            
+          } catch (error) {
+            console.error('Error initializing Choices for ' + select.id + ':', error);
+          }
+        });
+      }
+    `;
+  (document.head || document.documentElement).appendChild(initScript);
+}
+
+// Function to modify inputs to selects
+async function modifyInputToSelect() {
+  const selectOptions = {
+    country: [
+      { value: "", label: "Select a Country" },
+      { value: "australia", label: "Australia" },
+      { value: "usa", label: "USA" },
+      { value: "nepal", label: "Nepal" },
+    ],
+    postcode: [
+      { value: "", label: "Select a Postcode" },
+      { value: "6059", label: "6059" },
+      { value: "3029", label: "3029" },
+      { value: "123", label: "123" },
+    ],
+    ribbon: [
+      { value: "", label: "Select a Ribbon Color" },
+      { value: "red", label: "Red" },
+      { value: "black", label: "Black" },
+      { value: "green", label: "Green" },
+    ],
+  };
+
+  document
+    .querySelectorAll("#modals .input-group input")
+    .forEach((input, index) => {
+      if (input.dataset.processed) return;
+
+      const select = document.createElement("select");
+      select.className = "form-control";
+      select.id = `choice-select-${index}`;
+      // Hide the input field
+      input.style.display = "none";
+
+      // Get labels and find matching label
+      const labels = input.closest(".modal-body").querySelectorAll("label");
+      const matchingLabel = Array.from(labels).find(
+        (label) =>
+          label.nextElementSibling && label.nextElementSibling.contains(input)
+      );
+
+      const label = matchingLabel
+        ? matchingLabel.textContent.toLowerCase().replace("*", "").trim()
+        : "country";
+
+      const options = selectOptions[label] || selectOptions["country"];
+
+      options.forEach((option) => {
+        const optionElement = document.createElement("option");
+        optionElement.value = option.value;
+        optionElement.textContent = option.label;
+        select.appendChild(optionElement);
+      });
+
+      // Set the initial value of the select field to match the input field's value
+      select.value = input.value;
+
+      // Add event listener to sync select value with hidden input
+      select.addEventListener("change", (event) => {
+        // Update the value property
+        // Note: input.value = select.value doesn't work here.
+        Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          "value"
+        ).set.call(input, select.value);
+
+        // Manually trigger input, change, and blur events
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      input.parentNode.insertBefore(select, input);
+    });
+  // Ensure Choices.js is reinitialized
+  const initScript = document.createElement("script");
+  initScript.textContent = `
+      if (typeof initializeChoices === 'function') {
+        console.log('Reinitializing Choices...');
+        initializeChoices();
+      }
+    `;
+  (document.head || document.documentElement).appendChild(initScript);
+}
+
+// Modal handling
+let isModalModified = false;
+const modalId = "#modals";
+const openClass = "modal-open";
+
+async function checkIfModalIsOpen() {
+  const modalElement = document.querySelector(modalId);
+  if (
+    modalElement &&
+    modalElement.classList.contains(openClass) &&
+    !isModalModified
+  ) {
+    // Load CSS
+    loadChoicesCSS();
+
+    // Inject Choices library
+    const libraryInjected = await injectChoicesLibrary();
+    if (libraryInjected) {
+      // Inject initialization code
+      injectInitializationCode();
+
+      // Small delay to ensure everything is loaded
+      setTimeout(() => {
+        modifyInputToSelect();
+      }, 100);
+
+      isModalModified = true;
+    }
+  } else if (modalElement && !modalElement.classList.contains(openClass)) {
+    isModalModified = false;
+  }
+}
+
+// Enhanced observer setup
+const observer = new MutationObserver((mutations) => {
+  for (const mutation of mutations) {
+    if (
+      mutation.target.id === "modals" ||
+      mutation.target.classList.contains("modal-open")
+    ) {
+      checkIfModalIsOpen();
+      break;
+    }
+  }
+});
+
+observer.observe(document.body, {
+  attributes: true,
+  attributeFilter: ["class"],
+  childList: true,
+  subtree: true,
+});
+
+// Initial check
+checkIfModalIsOpen();

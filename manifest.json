@@ -1,0 +1,45 @@
+{
+  "background": {
+    "scripts": ["./background.js"],
+    "persistent": true
+  },
+  "browser_action": {
+    "default_popup": "./popup.html"
+  },
+  "content_scripts": [
+    {
+      "all_frames": false,
+      "js": ["./content.js"],
+      "matches": ["http://epos.erply.com/*", "https://epos.erply.com/*"],
+      "run_at": "document_end"
+    }
+  ],
+  "content_security_policy": "script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; object-src 'self'",
+  "web_accessible_resources": [
+    "assets/choices.min.js",
+    "assets/choices.min.css"
+  ],
+  "description": "retailCare-erply-extension",
+  "icons": {
+    "16": "assets/icons/icon_16.png",
+    "32": "assets/icons/icon_32.png",
+    "64": "assets/icons/icon_64.png",
+    "128": "assets/icons/icon_128.png"
+  },
+  "manifest_version": 2,
+  "name": "POS Sales Notes Input Change",
+  "options_ui": {
+    "chrome_style": false,
+    "page": "./options.html"
+  },
+  "permissions": [
+    "http://epos.erply.com/*",
+    "https://epos.erply.com/*",
+    "storage",
+    "tabs",
+    "webRequest",
+    "unlimitedStorage",
+    "notifications"
+  ],
+  "version": "1.0.4"
+}
