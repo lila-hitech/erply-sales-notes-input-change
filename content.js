@@ -11,9 +11,9 @@ async function injectChoicesLibrary() {
     script.textContent =
       choicesCode +
       `
-        // Store Choices in a global variable
-        window.ChoicesLibrary = Choices;
-      `;
+          // Store Choices in a global variable
+          window.ChoicesLibrary = Choices;
+        `;
     (document.head || document.documentElement).appendChild(script);
 
     return true;
@@ -36,12 +36,12 @@ function loadChoicesCSS() {
 function injectCustomStyles() {
   const style = document.createElement("style");
   style.textContent = `
-      /* Target the Choices container to ensure full width */
-  .choices {
-    width: 100%;
-    color: black;
-  }
-    `;
+        /* Target the Choices container to ensure full width */
+    .choices {
+      width: 100%;
+      color: black;
+    }
+      `;
   document.head.appendChild(style);
 }
 
@@ -52,74 +52,118 @@ injectCustomStyles();
 function injectInitializationCode() {
   const initScript = document.createElement("script");
   initScript.textContent = `
-      function initializeChoices() {
-        if (!window.ChoicesLibrary) {
-          console.error('Choices library not available');
-          return;
-        }
-  
-        const selects = document.querySelectorAll("#modals select.form-control");
-        
-        selects.forEach((select, index) => {
-          try {
-            if (select.choicesInstance) {
-              select.choicesInstance.destroy();
-            }
-            
-            const instance = new window.ChoicesLibrary(select, {
-              searchEnabled: true,
-              searchPlaceholderValue: 'Type to search...',
-              removeItemButton: true,
-              searchFields: ['label', 'value'],
-              searchResultLimit: 10,
-              position: 'bottom',
-              shouldSort: false,
-              searchChoices: true,
-              itemSelectText: '',
-              noChoicesText: 'No options available',
-              noResultsText: 'No results found',
-              callbackOnInit: function() {
-                console.log('Choices initialized for:', select.id);
-              }
-            });
-            
-            select.choicesInstance = instance;
-            
-            // Force a refresh of the dropdown
-            setTimeout(() => {
-              instance.refresh();
-            }, 100);
-            
-          } catch (error) {
-            console.error('Error initializing Choices for ' + select.id + ':', error);
+        function initializeChoices() {
+          if (!window.ChoicesLibrary) {
+            console.error('Choices library not available');
+            return;
           }
-        });
-      }
-    `;
+    
+          const selects = document.querySelectorAll("#modals select.form-control");
+          
+          selects.forEach((select, index) => {
+            try {
+              if (select.choicesInstance) {
+                select.choicesInstance.destroy();
+              }
+              
+              const instance = new window.ChoicesLibrary(select, {
+                searchEnabled: true,
+                searchPlaceholderValue: 'Type to search...',
+                removeItemButton: true,
+                searchFields: ['label', 'value'],
+                searchResultLimit: 10,
+                position: 'bottom',
+                shouldSort: false,
+                searchChoices: true,
+                itemSelectText: '',
+                noChoicesText: 'No options available',
+                noResultsText: 'No results found',
+                callbackOnInit: function() {
+                  console.log('Choices initialized for:', select.id);
+                }
+              });
+              
+              select.choicesInstance = instance;
+              
+              // Force a refresh of the dropdown
+              setTimeout(() => {
+                instance.refresh();
+              }, 100);
+              
+            } catch (error) {
+              console.error('Error initializing Choices for ' + select.id + ':', error);
+            }
+          });
+        }
+      `;
   (document.head || document.documentElement).appendChild(initScript);
+}
+
+// Function to fetch data from the API
+async function fetchOptions() {
+  try {
+    // Replace with your actual API endpoint
+    const response = await fetch(
+      "https://scenicworld.synccare.io/scenicworld/public/get-options?clientCode=610433"
+    );
+    const data = await response.json();
+    return data.optionsData; // Extract the optionsData from the response
+  } catch (error) {
+    console.error("Failed to fetch options:", error);
+    return null;
+  }
+}
+
+// Function to transform API response into the format needed for dropdowns
+function transformApiResponse(apiData) {
+  if (!apiData) return null;
+
+  return {
+    country: apiData.country.map((item) => ({
+      value: item.name.toLowerCase(), // Use name as value
+      label: item.name, // Use name as label
+    })),
+    postcode: apiData.postcode.map((item) => ({
+      value: item.name, // Use name as value
+      label: item.name, // Use name as label
+    })),
+    ribbon: apiData.ribbon.map((item) => ({
+      value: item.name.toLowerCase(), // Use name as value
+      label: item.name, // Use name as label
+    })),
+  };
 }
 
 // Function to modify inputs to selects
 async function modifyInputToSelect() {
+  const apiData = await fetchOptions();
+  const transformedOptions = transformApiResponse(apiData);
+
   const selectOptions = {
-    country: [
-      { value: "", label: "Select a Country" },
-      { value: "australia", label: "Australia" },
-      { value: "usa", label: "USA" },
-      { value: "nepal", label: "Nepal" },
-    ],
-    postcode: [
-      { value: "", label: "Select a Postcode" },
-      { value: "6059", label: "6059" },
-      { value: "3029", label: "3029" },
-      { value: "123", label: "123" },
-    ],
-    ribbon: [
-      { value: "", label: "Select a Ribbon Color" },
-      { value: "red", label: "Red" },
-      { value: "black", label: "Black" },
-      { value: "green", label: "Green" },
-    ],
+    country: transformedOptions
+      ? transformedOptions.country
+      : [
+          { value: "", label: "Select a Country" },
+          { value: "australia", label: "Australia" },
+          { value: "usa", label: "USA" },
+          { value: "nepal", label: "Nepal" },
+        ],
+    postcode: transformedOptions
+      ? transformedOptions.postcode
+      : [
+          { value: "", label: "Select a Postcode" },
+          { value: "6059", label: "6059" },
+          { value: "3029", label: "3029" },
+          { value: "123", label: "123" },
+        ],
+    ribbon: transformedOptions
+      ? transformedOptions.ribbon
+      : [
+          { value: "", label: "Select a Ribbon Color" },
+          { value: "red", label: "Red" },
+          { value: "black", label: "Black" },
+          { value: "green", label: "Green" },
+        ],
   };
 
   document
@@ -145,6 +189,11 @@ async function modifyInputToSelect() {
         : "country";
 
       const options = selectOptions[label] || selectOptions["country"];
+
+      // Add a default "Select an option" as the first option
+      if (options.length > 0 && options[0].value !== "") {
+        options.unshift({ value: "", label: `Select a ${label}` });
+      }
 
       options.forEach((option) => {
         const optionElement = document.createElement("option");
@@ -172,14 +221,15 @@ async function modifyInputToSelect() {
 
       input.parentNode.insertBefore(select, input);
     });
+
   // Ensure Choices.js is reinitialized
   const initScript = document.createElement("script");
   initScript.textContent = `
-      if (typeof initializeChoices === 'function') {
-        console.log('Reinitializing Choices...');
-        initializeChoices();
-      }
-    `;
+        if (typeof initializeChoices === 'function') {
+          console.log('Reinitializing Choices...');
+          initializeChoices();
+        }
+      `;
   (document.head || document.documentElement).appendChild(initScript);
 }
 
