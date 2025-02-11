@@ -1,4 +1,4 @@
-# Erply POS Sales Notes input type change
+# Scenic World Sales Notes
 
 ## Description
 

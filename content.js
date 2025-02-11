@@ -107,12 +107,41 @@ async function fetchOptions() {
       "https://scenicworld.synccare.io/scenicworld/public/get-options?clientCode=610433"
     );
     const data = await response.json();
-    return data.optionsData; // Extract the optionsData from the response
+
+    // let's name this distinctive. Another extension may have similar functionality.
+    // SW - Scenic World
+    const salesNotesOptionsSW = data.optionsData;
+
+    sessionStorage.setItem(
+      "salesNotesOptionsSW",
+      JSON.stringify(salesNotesOptionsSW)
+    );
+
+    return salesNotesOptionsSW; // Extract the salesNotesOptionsSW from the response
   } catch (error) {
     console.error("Failed to fetch options:", error);
     return null;
   }
 }
+
+function getOptionsFromSessionStorage() {
+  const salesNotesOptionsSW = sessionStorage.getItem("salesNotesOptionsSW");
+
+  return salesNotesOptionsSW ? JSON.parse(salesNotesOptionsSW) : null;
+}
+
+let salesNotesOptionsSW = null;
+
+// Fetch options when the content script is injected
+(async () => {
+  // first check for options in session storage
+  salesNotesOptionsSW = getOptionsFromSessionStorage();
+
+  if (!salesNotesOptionsSW) {
+    // fetch from api if not available in session storage
+    salesNotesOptionsSW = await fetchOptions();
+  }
+})();
 
 // Function to transform API response into the format needed for dropdowns
 function transformApiResponse(apiData) {
@@ -123,10 +152,10 @@ function transformApiResponse(apiData) {
       value: item.name.toLowerCase(), // Use name as value
       label: item.name, // Use name as label
     })),
-    postcode: apiData.postcode.map((item) => ({
-      value: item.name, // Use name as value
-      label: item.name, // Use name as label
-    })),
+    // postcode: apiData.postcode.map((item) => ({
+    //   value: item.name, // Use name as value
+    //   label: item.name, // Use name as label
+    // })),
     ribbon: apiData.ribbon.map((item) => ({
       value: item.name.toLowerCase(), // Use name as value
       label: item.name, // Use name as label
@@ -136,8 +165,7 @@ function transformApiResponse(apiData) {
 
 // Function to modify inputs to selects
 async function modifyInputToSelect() {
-  const apiData = await fetchOptions();
-  const transformedOptions = transformApiResponse(apiData);
+  const transformedOptions = transformApiResponse(salesNotesOptionsSW);
 
   const selectOptions = {
     country: transformedOptions

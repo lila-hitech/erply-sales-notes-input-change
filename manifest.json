@@ -27,7 +27,7 @@
     "128": "assets/icons/icon_128.png"
   },
   "manifest_version": 2,
-  "name": "POS Sales Notes Input Change",
+  "name": "ScenicWorld - RC ERPLY",
   "options_ui": {
     "chrome_style": false,
     "page": "./options.html"
@@ -41,5 +41,5 @@
     "unlimitedStorage",
     "notifications"
   ],
-  "version": "1.0.4"
+  "version": "1.0.0"
 }
