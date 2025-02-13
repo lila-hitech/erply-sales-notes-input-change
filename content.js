@@ -13,7 +13,7 @@ async function injectChoicesLibrary() {
       `
           // Store Choices in a global variable
           window.ChoicesLibrary = Choices;
-        `;
+      `;
     (document.head || document.documentElement).appendChild(script);
 
     return true;
@@ -52,50 +52,68 @@ injectCustomStyles();
 function injectInitializationCode() {
   const initScript = document.createElement("script");
   initScript.textContent = `
-        function initializeChoices() {
+      function initializeChoices() {
           if (!window.ChoicesLibrary) {
-            console.error('Choices library not available');
-            return;
+              console.error('Choices library not available');
+              return;
           }
-    
+  
           const selects = document.querySelectorAll("#modals select.form-control");
           
           selects.forEach((select, index) => {
-            try {
-              if (select.choicesInstance) {
-                select.choicesInstance.destroy();
+              try {
+                  if (select.choicesInstance) {
+                      select.choicesInstance.destroy();
+                  }
+                  
+                  const instance = new window.ChoicesLibrary(select, {
+                      searchEnabled: true,
+                      searchPlaceholderValue: 'Type to search...',
+                      removeItemButton: true,
+                      searchFields: ['label'],
+                      searchResultLimit: 10,
+                      position: 'bottom',
+                      shouldSort: false,
+                      searchChoices: true,
+                      itemSelectText: '',
+                      noChoicesText: 'No options available',
+                      noResultsText: 'No results found',
+                      callbackOnInit: function() {
+                          console.log('Choices initialized for:', select.id);
+                      },
+                      fuseOptions: {
+                          threshold: 0.0,  // Exact matching
+                          findAllMatches: true,
+                          includeMatches: true,
+                          ignoreLocation: true,  // Search anywhere in the string
+                          useExtendedSearch: true,
+                          tokenize: true,  // Split the text into words
+                          matchAllTokens: true  // All words in the search must match
+                      }
+                  });
+                  
+                  // Override the search function
+                  instance.config.choices.forEach(choice => {
+                      const originalSearch = choice.customProperties?.search || '';
+                      choice.customProperties = {
+                          ...choice.customProperties,
+                          search: choice.label.toLowerCase()
+                      };
+                  });
+                  
+                  select.choicesInstance = instance;
+                  
+                  // Force a refresh of the dropdown
+                  setTimeout(() => {
+                      instance.refresh();
+                  }, 100);
+                  
+              } catch (error) {
+                  console.error('Error initializing Choices for ' + select.id + ':', error);
               }
-              
-              const instance = new window.ChoicesLibrary(select, {
-                searchEnabled: true,
-                searchPlaceholderValue: 'Type to search...',
-                removeItemButton: true,
-                searchFields: ['label', 'value'],
-                searchResultLimit: 10,
-                position: 'bottom',
-                shouldSort: false,
-                searchChoices: true,
-                itemSelectText: '',
-                noChoicesText: 'No options available',
-                noResultsText: 'No results found',
-                callbackOnInit: function() {
-                  console.log('Choices initialized for:', select.id);
-                }
-              });
-              
-              select.choicesInstance = instance;
-              
-              // Force a refresh of the dropdown
-              setTimeout(() => {
-                instance.refresh();
-              }, 100);
-              
-            } catch (error) {
-              console.error('Error initializing Choices for ' + select.id + ':', error);
-            }
           });
-        }
-      `;
+      }
+  `;
   (document.head || document.documentElement).appendChild(initScript);
 }
 
@@ -149,16 +167,14 @@ function transformApiResponse(apiData) {
 
   return {
     country: apiData.country.map((item) => ({
-      value: item.name.toLowerCase(), // Use name as value
+      value: item.name, // Use code as value
       label: item.name, // Use name as label
+      id: parseInt(item.code), // Use code as id
     })),
-    // postcode: apiData.postcode.map((item) => ({
-    //   value: item.name, // Use name as value
-    //   label: item.name, // Use name as label
-    // })),
     ribbon: apiData.ribbon.map((item) => ({
-      value: item.name.toLowerCase(), // Use name as value
-      label: item.name, // Use name as label
+      value: item.name.toLowerCase(),
+      label: item.name,
+      id: item.id || item.name.toLowerCase(), // Fallback to lowercase name if no id
     })),
   };
 }
@@ -171,26 +187,16 @@ async function modifyInputToSelect() {
     country: transformedOptions
       ? transformedOptions.country
       : [
-          { value: "", label: "Select a Country" },
-          { value: "australia", label: "Australia" },
-          { value: "usa", label: "USA" },
-          { value: "nepal", label: "Nepal" },
-        ],
-    postcode: transformedOptions
-      ? transformedOptions.postcode
-      : [
-          { value: "", label: "Select a Postcode" },
-          { value: "6059", label: "6059" },
-          { value: "3029", label: "3029" },
-          { value: "123", label: "123" },
+          { value: "", label: "Select a Country", id: 0 },
+          { value: "1", label: "United States 1", id: 1 },
+          { value: "2", label: "Canada 2", id: 2 },
         ],
     ribbon: transformedOptions
       ? transformedOptions.ribbon
       : [
-          { value: "", label: "Select a Ribbon Color" },
-          { value: "red", label: "Red" },
-          { value: "black", label: "Black" },
-          { value: "green", label: "Green" },
+          { value: "", label: "Select a Ribbon Color", id: 0 },
+          { value: "red", label: "Red", id: 1 },
+          { value: "black", label: "Black", id: 2 },
         ],
   };
 
@@ -202,6 +208,7 @@ async function modifyInputToSelect() {
       const select = document.createElement("select");
       select.className = "form-control";
       select.id = `choice-select-${index}`;
+
       // Hide the input field
       input.style.display = "none";
 
@@ -220,13 +227,14 @@ async function modifyInputToSelect() {
 
       // Add a default "Select an option" as the first option
       if (options.length > 0 && options[0].value !== "") {
-        options.unshift({ value: "", label: `Select a ${label}` });
+        options.unshift({ value: "", label: `Select a ${label}`, id: 0 });
       }
 
       options.forEach((option) => {
         const optionElement = document.createElement("option");
         optionElement.value = option.value;
         optionElement.textContent = option.label;
+        optionElement.dataset.id = option.id;
         select.appendChild(optionElement);
       });
 
@@ -235,14 +243,11 @@ async function modifyInputToSelect() {
 
       // Add event listener to sync select value with hidden input
       select.addEventListener("change", (event) => {
-        // Update the value property
-        // Note: input.value = select.value doesn't work here.
         Object.getOwnPropertyDescriptor(
           HTMLInputElement.prototype,
           "value"
         ).set.call(input, select.value);
 
-        // Manually trigger input, change, and blur events
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
       });
@@ -253,11 +258,11 @@ async function modifyInputToSelect() {
   // Ensure Choices.js is reinitialized
   const initScript = document.createElement("script");
   initScript.textContent = `
-        if (typeof initializeChoices === 'function') {
+      if (typeof initializeChoices === 'function') {
           console.log('Reinitializing Choices...');
           initializeChoices();
-        }
-      `;
+      }
+  `;
   (document.head || document.documentElement).appendChild(initScript);
 }
 
