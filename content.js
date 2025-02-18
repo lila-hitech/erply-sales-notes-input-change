@@ -187,7 +187,7 @@ async function modifyInputToSelect() {
     country: transformedOptions
       ? transformedOptions.country
       : [
-          { value: "", label: "Select a Country", id: 0 },
+          { value: "", label: "Select a Country/Postcode", id: 0 },
           { value: "1", label: "United States 1", id: 1 },
           { value: "2", label: "Canada 2", id: 2 },
         ],
