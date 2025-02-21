@@ -166,15 +166,20 @@ function transformApiResponse(apiData) {
   if (!apiData) return null;
 
   return {
-    country: apiData.country.map((item) => ({
+    country: apiData.country.map((item, index) => ({
       value: item.name, // Use code as value
       label: item.name, // Use name as label
-      id: parseInt(item.code), // Use code as id
+      id: index + 1, // Use code as id
     })),
-    ribbon: apiData.ribbon.map((item) => ({
+    postcode: apiData.postcode.map((item, index) => ({
       value: item.name.toLowerCase(),
       label: item.name,
-      id: item.id || item.name.toLowerCase(), // Fallback to lowercase name if no id
+      id: index + 1,
+    })),
+    fog: apiData.ribbon.map((item, index) => ({
+      value: item.name.toLowerCase(),
+      label: item.name,
+      id: index + 1,
     })),
   };
 }
@@ -184,21 +189,45 @@ async function modifyInputToSelect() {
   const transformedOptions = transformApiResponse(salesNotesOptionsSW);
 
   const selectOptions = {
-    country: transformedOptions
-      ? transformedOptions.country
-      : [
-          { value: "", label: "Select a Country/Postcode", id: 0 },
-          { value: "1", label: "United States 1", id: 1 },
-          { value: "2", label: "Canada 2", id: 2 },
-        ],
-    ribbon: transformedOptions
-      ? transformedOptions.ribbon
-      : [
-          { value: "", label: "Select a Ribbon Color", id: 0 },
-          { value: "red", label: "Red", id: 1 },
-          { value: "black", label: "Black", id: 2 },
-        ],
+    country: transformedOptions ? transformedOptions.country : [],
+    postcode: transformedOptions ? transformedOptions.postcode : [],
+    fog: transformedOptions ? transformedOptions.fog : [],
   };
+
+  // Helper function to toggle postcode section visibility
+  function togglePostcodeVisibility(show) {
+    const postcodeSelect = document.querySelector(
+      "#modals select[id^='choice-select-'][id$='1']"
+    );
+    const postcodeLabel = document.querySelector(
+      "#modals label:nth-of-type(2)"
+    );
+
+    if (postcodeSelect && postcodeLabel) {
+      // Get the container div and surrounding br tags
+      const containerDiv = postcodeLabel.nextElementSibling;
+      const precedingBr = postcodeLabel.previousElementSibling;
+      const followingBr = containerDiv.nextElementSibling;
+
+      const elements = [
+        postcodeSelect.closest(".input-group"),
+        postcodeLabel,
+        containerDiv,
+        precedingBr,
+        followingBr,
+      ];
+
+      elements.forEach((element) => {
+        if (element) {
+          element.style.display = show ? "block" : "none";
+        }
+      });
+
+      // Special handling for br tags
+      precedingBr.style.display = "none";
+      followingBr.style.display = "none";
+    }
+  }
 
   document
     .querySelectorAll("#modals .input-group input")
@@ -250,18 +279,28 @@ async function modifyInputToSelect() {
 
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
+
+        // Show/hide postcode select and label based on country selection
+        if (label === "country") {
+          togglePostcodeVisibility(select.value === "Australia");
+        }
       });
 
       input.parentNode.insertBefore(select, input);
+
+      // Hide the postcode section initially if it's the postcode field
+      if (label === "postcode") {
+        togglePostcodeVisibility(false);
+      }
     });
 
   // Ensure Choices.js is reinitialized
   const initScript = document.createElement("script");
   initScript.textContent = `
-      if (typeof initializeChoices === 'function') {
-          console.log('Reinitializing Choices...');
-          initializeChoices();
-      }
+    if (typeof initializeChoices === 'function') {
+      console.log('Reinitializing Choices...');
+      initializeChoices();
+    }
   `;
   (document.head || document.documentElement).appendChild(initScript);
 }
