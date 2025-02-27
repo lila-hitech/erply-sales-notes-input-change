@@ -194,7 +194,7 @@ async function modifyInputToSelect() {
     fog: transformedOptions ? transformedOptions.fog : [],
   };
 
-  // Helper function to toggle postcode section visibility
+  // Helper function to toggle postcode section visibility and clear value if hidden
   function togglePostcodeVisibility(show) {
     const postcodeSelect = document.querySelector(
       "#modals select[id^='choice-select-'][id$='1']"
@@ -202,9 +202,9 @@ async function modifyInputToSelect() {
     const postcodeLabel = document.querySelector(
       "#modals label:nth-of-type(2)"
     );
+    const postcodeInput = postcodeSelect?.nextElementSibling; // The hidden input tied to postcode
 
-    if (postcodeSelect && postcodeLabel) {
-      // Get the container div and surrounding br tags
+    if (postcodeSelect && postcodeLabel && postcodeInput) {
       const containerDiv = postcodeLabel.nextElementSibling;
       const precedingBr = postcodeLabel.previousElementSibling;
       const followingBr = containerDiv.nextElementSibling;
@@ -222,6 +222,13 @@ async function modifyInputToSelect() {
           element.style.display = show ? "block" : "none";
         }
       });
+
+      // Clear the postcode input value when hiding
+      if (!show && postcodeInput) {
+        postcodeInput.value = ""; // Reset the hidden input value
+        postcodeSelect.value = ""; // Reset the select value
+        postcodeSelect.dispatchEvent(new Event("change", { bubbles: true })); // Trigger change event
+      }
 
       // Special handling for br tags
       precedingBr.style.display = "none";
@@ -292,6 +299,9 @@ async function modifyInputToSelect() {
       if (label === "postcode") {
         togglePostcodeVisibility(false);
       }
+
+      // Mark input as processed
+      input.dataset.processed = "true";
     });
 
   // Ensure Choices.js is reinitialized
