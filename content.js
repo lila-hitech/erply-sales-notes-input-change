@@ -120,22 +120,22 @@ function injectInitializationCode() {
 // Function to fetch data from the API
 async function fetchOptions() {
   try {
-    // Replace with your actual API endpoint
-    const response = await fetch(
-      "https://scenicworld.synccare.io/scenicworld/public/get-options?clientCode=610433"
-    );
-    const data = await response.json();
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: "fetchOptions" }, (response) => {
+        resolve(response);
+      });
+    });
 
-    // let's name this distinctive. Another extension may have similar functionality.
-    // SW - Scenic World
-    const salesNotesOptionsSW = data.optionsData;
+    if (!response.success) {
+      throw new Error(response.error || "Failed to fetch options");
+    }
 
+    const salesNotesOptionsSW = response.data.optionsData;
     sessionStorage.setItem(
       "salesNotesOptionsSW",
       JSON.stringify(salesNotesOptionsSW)
     );
-
-    return salesNotesOptionsSW; // Extract the salesNotesOptionsSW from the response
+    return salesNotesOptionsSW;
   } catch (error) {
     console.error("Failed to fetch options:", error);
     return null;
@@ -308,7 +308,6 @@ async function modifyInputToSelect() {
   const initScript = document.createElement("script");
   initScript.textContent = `
     if (typeof initializeChoices === 'function') {
-      console.log('Reinitializing Choices...');
       initializeChoices();
     }
   `;

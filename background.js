@@ -1,63 +1,11 @@
-// !function (e) { var t = {}; function n(r) { if (t[r]) return t[r].exports; var o = t[r] = { i: r, l: !1, exports: {} }; return e[r].call(o.exports, o, o.exports, n), o.l = !0, o.exports } n.m = e, n.c = t, n.d = function (e, t, r) { n.o(e, t) || Object.defineProperty(e, t, { enumerable: !0, get: r }) }, n.r = function (e) { "undefined" != typeof Symbol && Symbol.toStringTag && Object.defineProperty(e, Symbol.toStringTag, { value: "Module" }), Object.defineProperty(e, "__esModule", { value: !0 }) }, n.t = function (e, t) { if (1 & t && (e = n(e)), 8 & t) return e; if (4 & t && "object" == typeof e && e && e.__esModule) return e; var r = Object.create(null); if (n.r(r), Object.defineProperty(r, "default", { enumerable: !0, value: e }), 2 & t && "string" != typeof e) for (var o in e) n.d(r, o, function (t) { return e[t] }.bind(null, o)); return r }, n.n = function (e) { var t = e && e.__esModule ? function () { return e.default } : function () { return e }; return n.d(t, "a", t), t }, n.o = function (e, t) { return Object.prototype.hasOwnProperty.call(e, t) }, n.p = "./", n(n.s = 37) }({ 37: function (e, t, n) { var r = { isEnabled: !0 }; chrome.runtime.onMessage.addListener((function (e) { r.isEnabled && console.log(e, r) })), chrome.runtime.onInstalled.addListener((function () { var e; e && (r = e), chrome.storage.sync.set({ settings: r }) })), chrome.storage.sync.get((function (e) { e.settings && (r = e.settings) })) } });
-
-!(function (e) {
-    var t = {};
-    function n(r) {
-        if (t[r]) return t[r].exports;
-        var o = (t[r] = { i: r, l: !1, exports: {} });
-        return e[r].call(o.exports, o, o.exports, n), (o.l = !0), o.exports;
-    }
-    (n.m = e),
-        (n.c = t),
-        (n.d = function (e, t, r) {
-            n.o(e, t) || Object.defineProperty(e, t, { enumerable: !0, get: r });
-        }),
-        (n.r = function (e) {
-            "undefined" != typeof Symbol && Symbol.toStringTag && Object.defineProperty(e, Symbol.toStringTag, { value: "Module" }), Object.defineProperty(e, "__esModule", { value: !0 });
-        }),
-        (n.t = function (e, t) {
-            if ((1 & t && (e = n(e)), 8 & t)) return e;
-            if (4 & t && "object" == typeof e && e && e.__esModule) return e;
-            var r = Object.create(null);
-            if ((n.r(r), Object.defineProperty(r, "default", { enumerable: !0, value: e }), 2 & t && "string" != typeof e))
-                for (var o in e)
-                    n.d(
-                        r,
-                        o,
-                        function (t) {
-                            return e[t];
-                        }.bind(null, o)
-                    );
-            return r;
-        }),
-        (n.n = function (e) {
-            var t =
-                e && e.__esModule
-                    ? function () {
-                          return e.default;
-                      }
-                    : function () {
-                          return e;
-                      };
-            return n.d(t, "a", t), t;
-        }),
-        (n.o = function (e, t) {
-            return Object.prototype.hasOwnProperty.call(e, t);
-        }),
-        (n.p = "./"),
-        n((n.s = 37));
-})({
-    37: function (e, t, n) {
-        var r = { isEnabled: !0 };
-        chrome.runtime.onMessage.addListener(function (e) {
-            r.isEnabled && console.log(e, r);
-        }),
-            chrome.runtime.onInstalled.addListener(function () {
-                var e;
-                e && (r = e), chrome.storage.sync.set({ settings: r });
-            }),
-            chrome.storage.sync.get(function (e) {
-                e.settings && (r = e.settings);
-            });
-    },
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "fetchOptions") {
+    fetch(
+      "https://sceniclive.synccare.io/scenicworld/public/get-options?clientCode=610433"
+    )
+      .then((response) => response.json())
+      .then((data) => sendResponse({ success: true, data }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // Required to use sendResponse asynchronously
+  }
 });
