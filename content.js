@@ -36,12 +36,37 @@ function loadChoicesCSS() {
 function injectCustomStyles() {
   const style = document.createElement("style");
   style.textContent = `
-        /* Target the Choices container to ensure full width */
+    /* Choices styles */
     .choices {
       width: 100%;
       color: black;
     }
-      `;
+    
+    /* Refresh button styles */
+    #refresh-options-btn:hover {
+      background-color: #e9e9e9 !important;
+      border-color: #ccc !important;
+    }
+    
+    #refresh-options-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed !important;
+    }
+    
+    /* Spinner animation */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Modal actions styling */
+    .modal-footer {
+      border-top: 1px solid #eee;
+      padding: 10px 15px;
+      display: flex;
+      justify-content: flex-end;
+    }
+  `;
   document.head.appendChild(style);
 }
 
@@ -117,6 +142,11 @@ function injectInitializationCode() {
   (document.head || document.documentElement).appendChild(initScript);
 }
 
+function getOptionsFromLocalStorage() {
+  const salesNotesOptionsSW = localStorage.getItem("salesNotesOptionsSW");
+  return salesNotesOptionsSW ? JSON.parse(salesNotesOptionsSW) : null;
+}
+
 // Function to fetch data from the API
 async function fetchOptions() {
   try {
@@ -131,7 +161,7 @@ async function fetchOptions() {
     }
 
     const salesNotesOptionsSW = response.data.optionsData;
-    sessionStorage.setItem(
+    localStorage.setItem(
       "salesNotesOptionsSW",
       JSON.stringify(salesNotesOptionsSW)
     );
@@ -152,11 +182,8 @@ let salesNotesOptionsSW = null;
 
 // Fetch options when the content script is injected
 (async () => {
-  // first check for options in session storage
-  salesNotesOptionsSW = getOptionsFromSessionStorage();
-
+  salesNotesOptionsSW = getOptionsFromLocalStorage();
   if (!salesNotesOptionsSW) {
-    // fetch from api if not available in session storage
     salesNotesOptionsSW = await fetchOptions();
   }
 })();
@@ -319,6 +346,108 @@ let isModalModified = false;
 const modalId = "#modals";
 const openClass = "modal-open";
 
+function addRefreshOptionsButton() {
+  // Check if button already exists
+  if (document.querySelector("#refresh-options-btn")) {
+    return;
+  }
+
+  // Create button container
+  const btnContainer = document.createElement("div");
+  btnContainer.className = "modal-footer";
+  btnContainer.style.display = "flex";
+  btnContainer.style.justifyContent = "flex-end";
+  btnContainer.style.padding = "10px 15px";
+  btnContainer.style.borderTop = "1px solid #eee";
+
+  // Create refresh button
+  const refreshBtn = document.createElement("button");
+  refreshBtn.id = "refresh-options-btn";
+  refreshBtn.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 5px;">
+      <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+    </svg>
+    Load New Options
+  `;
+
+  // Button styling
+  refreshBtn.style.cssText = `
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    color: #555;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+  `;
+
+  // Hover effects
+  refreshBtn.addEventListener("mouseenter", () => {
+    refreshBtn.style.backgroundColor = "#e9e9e9";
+    refreshBtn.style.borderColor = "#ccc";
+  });
+  refreshBtn.addEventListener("mouseleave", () => {
+    refreshBtn.style.backgroundColor = "#f5f5f5";
+    refreshBtn.style.borderColor = "#ddd";
+  });
+
+  // Click handler
+  refreshBtn.addEventListener("click", async () => {
+    const originalHtml = refreshBtn.innerHTML;
+    refreshBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite; margin-right: 5px;">
+        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+      </svg>
+      Loading...
+    `;
+    refreshBtn.disabled = true;
+
+    try {
+      localStorage.removeItem("salesNotesOptionsSW");
+      salesNotesOptionsSW = await fetchOptions();
+      modifyInputToSelect();
+
+      refreshBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <path d="M22 4 12 14.01l-3-3"/>
+        </svg>
+        Options Updated
+      `;
+      setTimeout(() => {
+        refreshBtn.innerHTML = originalHtml;
+        refreshBtn.disabled = false;
+      }, 2000);
+    } catch (error) {
+      console.error("Error refreshing options:", error);
+      refreshBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 8v4M12 16h.01"/>
+        </svg>
+        Try Again
+      `;
+      refreshBtn.disabled = false;
+    }
+  });
+
+  // Add button to container
+  btnContainer.appendChild(refreshBtn);
+
+  // Find the modal content and insert after modal-body
+  const modalContent = document.querySelector("#modals .modal-content");
+  if (modalContent) {
+    const modalBody = modalContent.querySelector(".modal-body");
+    if (modalBody) {
+      modalContent.insertBefore(btnContainer, modalBody.nextSibling);
+    } else {
+      modalContent.appendChild(btnContainer);
+    }
+  }
+}
+
 async function checkIfModalIsOpen() {
   const modalElement = document.querySelector(modalId);
   if (
@@ -338,6 +467,7 @@ async function checkIfModalIsOpen() {
       // Small delay to ensure everything is loaded
       setTimeout(() => {
         modifyInputToSelect();
+        addRefreshOptionsButton(); // Add the refresh button
       }, 100);
 
       isModalModified = true;
