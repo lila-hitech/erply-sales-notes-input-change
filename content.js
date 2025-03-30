@@ -62,7 +62,7 @@ function injectCustomStyles() {
     /* Modal actions styling */
     .modal-footer {
       border-top: 1px solid #eee;
-      padding: 10px 15px;
+      padding: 1rem;
       display: flex;
       justify-content: flex-end;
     }
@@ -357,7 +357,7 @@ function addRefreshOptionsButton() {
   btnContainer.className = "modal-footer";
   btnContainer.style.display = "flex";
   btnContainer.style.justifyContent = "flex-end";
-  btnContainer.style.padding = "10px 15px";
+  btnContainer.style.padding = "0.75rem";
   btnContainer.style.borderTop = "1px solid #eee";
 
   // Create refresh button
@@ -375,12 +375,13 @@ function addRefreshOptionsButton() {
     display: inline-flex;
     align-items: center;
     padding: 5px 12px;
-    color: #555;
-    border: 1px solid #ddd;
+    color: #101010;
+    border: 1px solid #939393;
     border-radius: 4px;
     cursor: pointer;
     font-size: 13px;
     transition: all 0.2s;
+    background-color: #999999;
   `;
 
   // Hover effects
@@ -389,8 +390,8 @@ function addRefreshOptionsButton() {
     refreshBtn.style.borderColor = "#ccc";
   });
   refreshBtn.addEventListener("mouseleave", () => {
-    refreshBtn.style.backgroundColor = "#f5f5f5";
-    refreshBtn.style.borderColor = "#ddd";
+    refreshBtn.style.backgroundColor = "#999999";
+    refreshBtn.style.borderColor = "#939393";
   });
 
   // Click handler
