@@ -1,32 +1,35 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "ScenicWorld - RC ERPLY",
   "version": "1.0.3",
   "description": "retailCare-erply-extension",
 
   "background": {
-    "scripts": ["./background.js"],
-    "persistent": true
+    "service_worker": "background.js"
   },
 
-  "browser_action": {
-    "default_popup": "./popup.html"
+  "action": {
+    "default_popup": "popup.html"
   },
 
   "content_scripts": [
     {
       "all_frames": false,
-      "js": ["./content.js"],
+      "js": ["assets/choices.min.js", "content.js"],
       "matches": ["http://epos.erply.com/*", "https://epos.erply.com/*"],
       "run_at": "document_end"
     }
   ],
 
-  "content_security_policy": "script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; object-src 'self'",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
 
   "web_accessible_resources": [
-    "assets/choices.min.js",
-    "assets/choices.min.css"
+    {
+      "resources": ["assets/choices.min.js", "assets/choices.min.css"],
+      "matches": ["http://epos.erply.com/*", "https://epos.erply.com/*"]
+    }
   ],
 
   "icons": {
@@ -37,19 +40,15 @@
   },
 
   "options_ui": {
-    "chrome_style": false,
-    "page": "./options.html"
+    "page": "options.html",
+    "open_in_tab": false
   },
 
-  "permissions": [
+  "permissions": ["storage", "tabs", "notifications"],
+
+  "host_permissions": [
     "http://epos.erply.com/*",
     "https://epos.erply.com/*",
-    "https://sceniclive.synccare.io/*",
-    "storage",
-    "tabs",
-    "webRequest",
-    "webRequestBlocking",
-    "unlimitedStorage",
-    "notifications"
+    "https://sceniclive.synccare.io/*"
   ]
 }

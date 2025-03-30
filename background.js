@@ -6,6 +6,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .then((response) => response.json())
       .then((data) => sendResponse({ success: true, data }))
       .catch((error) => sendResponse({ success: false, error: error.message }));
-    return true; // Required to use sendResponse asynchronously
+    return true; // Keep the message channel open for async response
   }
 });

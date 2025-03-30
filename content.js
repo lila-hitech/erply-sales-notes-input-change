@@ -1,28 +1,3 @@
-// First, read the Choices.js content and inject it directly
-async function injectChoicesLibrary() {
-  try {
-    const response = await fetch(
-      chrome.runtime.getURL("assets/choices.min.js")
-    );
-    const choicesCode = await response.text();
-
-    // Inject Choices.js code directly
-    const script = document.createElement("script");
-    script.textContent =
-      choicesCode +
-      `
-          // Store Choices in a global variable
-          window.ChoicesLibrary = Choices;
-      `;
-    (document.head || document.documentElement).appendChild(script);
-
-    return true;
-  } catch (error) {
-    console.error("Failed to inject Choices library:", error);
-    return false;
-  }
-}
-
 // Function to inject CSS
 function loadChoicesCSS() {
   if (!document.querySelector('link[href*="choices.min.css"]')) {
@@ -36,30 +11,27 @@ function loadChoicesCSS() {
 function injectCustomStyles() {
   const style = document.createElement("style");
   style.textContent = `
-    /* Choices styles */
     .choices {
       width: 100%;
       color: black;
     }
-    
-    /* Refresh button styles */
+
+    .modal-body > div:not([style*="display: none"]):last-of-type .choices {
+      margin-bottom: 0 !important;
+    }
+
     #refresh-options-btn:hover {
       background-color: #e9e9e9 !important;
       border-color: #ccc !important;
     }
-    
     #refresh-options-btn:disabled {
       opacity: 0.7;
       cursor: not-allowed !important;
     }
-    
-    /* Spinner animation */
     @keyframes spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
-    
-    /* Modal actions styling */
     .modal-footer {
       border-top: 1px solid #eee;
       padding: 1rem;
@@ -70,96 +42,84 @@ function injectCustomStyles() {
   document.head.appendChild(style);
 }
 
-// Call this function when initializing or with your existing initialization logic
 injectCustomStyles();
 
-// Function to inject initialization code
-function injectInitializationCode() {
-  const initScript = document.createElement("script");
-  initScript.textContent = `
-      function initializeChoices() {
-          if (!window.ChoicesLibrary) {
-              console.error('Choices library not available');
-              return;
-          }
-  
-          const selects = document.querySelectorAll("#modals select.form-control");
-          
-          selects.forEach((select, index) => {
-              try {
-                  if (select.choicesInstance) {
-                      select.choicesInstance.destroy();
-                  }
-                  
-                  const instance = new window.ChoicesLibrary(select, {
-                      searchEnabled: true,
-                      searchPlaceholderValue: 'Type to search...',
-                      removeItemButton: true,
-                      searchFields: ['label'],
-                      searchResultLimit: 10,
-                      position: 'bottom',
-                      shouldSort: false,
-                      searchChoices: true,
-                      itemSelectText: '',
-                      noChoicesText: 'No options available',
-                      noResultsText: 'No results found',
-                      callbackOnInit: function() {
-                          console.log('Choices initialized for:', select.id);
-                      },
-                      fuseOptions: {
-                          threshold: 0.0,  // Exact matching
-                          findAllMatches: true,
-                          includeMatches: true,
-                          ignoreLocation: true,  // Search anywhere in the string
-                          useExtendedSearch: true,
-                          tokenize: true,  // Split the text into words
-                          matchAllTokens: true  // All words in the search must match
-                      }
-                  });
-                  
-                  // Override the search function
-                  instance.config.choices.forEach(choice => {
-                      const originalSearch = choice.customProperties?.search || '';
-                      choice.customProperties = {
-                          ...choice.customProperties,
-                          search: choice.label.toLowerCase()
-                      };
-                  });
-                  
-                  select.choicesInstance = instance;
-                  
-                  // Force a refresh of the dropdown
-                  setTimeout(() => {
-                      instance.refresh();
-                  }, 100);
-                  
-              } catch (error) {
-                  console.error('Error initializing Choices for ' + select.id + ':', error);
-              }
-          });
+// Initialize Choices on select elements
+function initializeChoices() {
+  if (typeof Choices === "undefined") {
+    console.error("Choices library not available");
+    return;
+  }
+
+  const selects = document.querySelectorAll("#modals select.form-control");
+
+  selects.forEach((select, index) => {
+    try {
+      if (select.choicesInstance) {
+        select.choicesInstance.destroy();
       }
-  `;
-  (document.head || document.documentElement).appendChild(initScript);
+
+      const instance = new Choices(select, {
+        searchEnabled: true,
+        searchPlaceholderValue: "Type to search...",
+        removeItemButton: true,
+        searchFields: ["label"],
+        searchResultLimit: 10,
+        position: "bottom",
+        shouldSort: false,
+        searchChoices: true,
+        itemSelectText: "",
+        noChoicesText: "No options available",
+        noResultsText: "No results found",
+        callbackOnInit: function () {
+          console.log("Choices initialized for:", select.id);
+        },
+        fuseOptions: {
+          threshold: 0.0,
+          findAllMatches: true,
+          includeMatches: true,
+          ignoreLocation: true,
+          useExtendedSearch: true,
+          tokenize: true,
+          matchAllTokens: true,
+        },
+      });
+
+      select.choicesInstance = instance;
+
+      setTimeout(() => {
+        instance.refresh();
+      }, 100);
+    } catch (error) {
+      console.error("Error initializing Choices for " + select.id + ":", error);
+    }
+  });
 }
 
+function removeLastChoicesMargin() {
+  const choicesElements = document.querySelectorAll(".modal-body .choices");
+  if (choicesElements.length > 0) {
+    choicesElements[choicesElements.length - 1].style.marginBottom = "0";
+  }
+}
+
+// Call the function after the modal-body content is loaded.
+removeLastChoicesMargin();
+
+// Fetch and storage functions remain the same
 function getOptionsFromLocalStorage() {
   const salesNotesOptionsSW = localStorage.getItem("salesNotesOptionsSW");
   return salesNotesOptionsSW ? JSON.parse(salesNotesOptionsSW) : null;
 }
 
-// Function to fetch data from the API
 async function fetchOptions() {
   try {
-    const response = await new Promise((resolve) => {
-      chrome.runtime.sendMessage({ action: "fetchOptions" }, (response) => {
-        resolve(response);
-      });
+    const response = await chrome.runtime.sendMessage({
+      action: "fetchOptions",
     });
-
     if (!response.success) {
       throw new Error(response.error || "Failed to fetch options");
     }
-
     const salesNotesOptionsSW = response.data.optionsData;
     localStorage.setItem(
       "salesNotesOptionsSW",
@@ -172,15 +132,8 @@ async function fetchOptions() {
   }
 }
 
-function getOptionsFromSessionStorage() {
-  const salesNotesOptionsSW = sessionStorage.getItem("salesNotesOptionsSW");
-
-  return salesNotesOptionsSW ? JSON.parse(salesNotesOptionsSW) : null;
-}
-
 let salesNotesOptionsSW = null;
 
-// Fetch options when the content script is injected
 (async () => {
   salesNotesOptionsSW = getOptionsFromLocalStorage();
   if (!salesNotesOptionsSW) {
@@ -188,15 +141,13 @@ let salesNotesOptionsSW = null;
   }
 })();
 
-// Function to transform API response into the format needed for dropdowns
 function transformApiResponse(apiData) {
   if (!apiData) return null;
-
   return {
     country: apiData.country.map((item, index) => ({
-      value: item.name, // Use code as value
-      label: item.name, // Use name as label
-      id: index + 1, // Use code as id
+      value: item.name,
+      label: item.name,
+      id: index + 1,
     })),
     postcode: apiData.postcode.map((item, index) => ({
       value: item.name.toLowerCase(),
@@ -211,17 +162,15 @@ function transformApiResponse(apiData) {
   };
 }
 
-// Function to modify inputs to selects
+// Modify inputs to selects
 async function modifyInputToSelect() {
   const transformedOptions = transformApiResponse(salesNotesOptionsSW);
-
   const selectOptions = {
     country: transformedOptions ? transformedOptions.country : [],
     postcode: transformedOptions ? transformedOptions.postcode : [],
     fog: transformedOptions ? transformedOptions.fog : [],
   };
 
-  // Helper function to toggle postcode section visibility and clear value if hidden
   function togglePostcodeVisibility(show) {
     const postcodeSelect = document.querySelector(
       "#modals select[id^='choice-select-'][id$='1']"
@@ -229,7 +178,7 @@ async function modifyInputToSelect() {
     const postcodeLabel = document.querySelector(
       "#modals label:nth-of-type(2)"
     );
-    const postcodeInput = postcodeSelect?.nextElementSibling; // The hidden input tied to postcode
+    const postcodeInput = postcodeSelect?.nextElementSibling;
 
     if (postcodeSelect && postcodeLabel && postcodeInput) {
       const containerDiv = postcodeLabel.nextElementSibling;
@@ -245,19 +194,15 @@ async function modifyInputToSelect() {
       ];
 
       elements.forEach((element) => {
-        if (element) {
-          element.style.display = show ? "block" : "none";
-        }
+        if (element) element.style.display = show ? "block" : "none";
       });
 
-      // Clear the postcode input value when hiding
       if (!show && postcodeInput) {
-        postcodeInput.value = ""; // Reset the hidden input value
-        postcodeSelect.value = ""; // Reset the select value
-        postcodeSelect.dispatchEvent(new Event("change", { bubbles: true })); // Trigger change event
+        postcodeInput.value = "";
+        postcodeSelect.value = "";
+        postcodeSelect.dispatchEvent(new Event("change", { bubbles: true }));
       }
 
-      // Special handling for br tags
       precedingBr.style.display = "none";
       followingBr.style.display = "none";
     }
@@ -272,10 +217,8 @@ async function modifyInputToSelect() {
       select.className = "form-control";
       select.id = `choice-select-${index}`;
 
-      // Hide the input field
       input.style.display = "none";
 
-      // Get labels and find matching label
       const labels = input.closest(".modal-body").querySelectorAll("label");
       const matchingLabel = Array.from(labels).find(
         (label) =>
@@ -288,7 +231,6 @@ async function modifyInputToSelect() {
 
       const options = selectOptions[label] || selectOptions["country"];
 
-      // Add a default "Select an option" as the first option
       if (options.length > 0 && options[0].value !== "") {
         options.unshift({ value: "", label: `Select a ${label}`, id: 0 });
       }
@@ -301,20 +243,16 @@ async function modifyInputToSelect() {
         select.appendChild(optionElement);
       });
 
-      // Set the initial value of the select field to match the input field's value
       select.value = input.value;
 
-      // Add event listener to sync select value with hidden input
       select.addEventListener("change", (event) => {
         Object.getOwnPropertyDescriptor(
           HTMLInputElement.prototype,
           "value"
         ).set.call(input, select.value);
-
         input.dispatchEvent(new Event("input", { bubbles: true }));
         input.dispatchEvent(new Event("change", { bubbles: true }));
 
-        // Show/hide postcode select and label based on country selection
         if (label === "country") {
           togglePostcodeVisibility(select.value === "Australia");
         }
@@ -322,37 +260,25 @@ async function modifyInputToSelect() {
 
       input.parentNode.insertBefore(select, input);
 
-      // Hide the postcode section initially if it's the postcode field
       if (label === "postcode") {
         togglePostcodeVisibility(false);
       }
 
-      // Mark input as processed
       input.dataset.processed = "true";
     });
 
-  // Ensure Choices.js is reinitialized
-  const initScript = document.createElement("script");
-  initScript.textContent = `
-    if (typeof initializeChoices === 'function') {
-      initializeChoices();
-    }
-  `;
-  (document.head || document.documentElement).appendChild(initScript);
+  // Initialize Choices after DOM modifications
+  initializeChoices();
 }
 
-// Modal handling
+// Modal handling and refresh button (unchanged)
 let isModalModified = false;
 const modalId = "#modals";
 const openClass = "modal-open";
 
 function addRefreshOptionsButton() {
-  // Check if button already exists
-  if (document.querySelector("#refresh-options-btn")) {
-    return;
-  }
+  if (document.querySelector("#refresh-options-btn")) return;
 
-  // Create button container
   const btnContainer = document.createElement("div");
   btnContainer.className = "modal-footer";
   btnContainer.style.display = "flex";
@@ -360,7 +286,6 @@ function addRefreshOptionsButton() {
   btnContainer.style.padding = "0.75rem";
   btnContainer.style.borderTop = "1px solid #eee";
 
-  // Create refresh button
   const refreshBtn = document.createElement("button");
   refreshBtn.id = "refresh-options-btn";
   refreshBtn.innerHTML = `
@@ -370,7 +295,6 @@ function addRefreshOptionsButton() {
     Load New Options
   `;
 
-  // Button styling
   refreshBtn.style.cssText = `
     display: inline-flex;
     align-items: center;
@@ -384,7 +308,6 @@ function addRefreshOptionsButton() {
     background-color: #999999;
   `;
 
-  // Hover effects
   refreshBtn.addEventListener("mouseenter", () => {
     refreshBtn.style.backgroundColor = "#e9e9e9";
     refreshBtn.style.borderColor = "#ccc";
@@ -394,7 +317,6 @@ function addRefreshOptionsButton() {
     refreshBtn.style.borderColor = "#939393";
   });
 
-  // Click handler
   refreshBtn.addEventListener("click", async () => {
     const originalHtml = refreshBtn.innerHTML;
     refreshBtn.innerHTML = `
@@ -434,10 +356,7 @@ function addRefreshOptionsButton() {
     }
   });
 
-  // Add button to container
   btnContainer.appendChild(refreshBtn);
-
-  // Find the modal content and insert after modal-body
   const modalContent = document.querySelector("#modals .modal-content");
   if (modalContent) {
     const modalBody = modalContent.querySelector(".modal-body");
@@ -456,29 +375,17 @@ async function checkIfModalIsOpen() {
     modalElement.classList.contains(openClass) &&
     !isModalModified
   ) {
-    // Load CSS
     loadChoicesCSS();
-
-    // Inject Choices library
-    const libraryInjected = await injectChoicesLibrary();
-    if (libraryInjected) {
-      // Inject initialization code
-      injectInitializationCode();
-
-      // Small delay to ensure everything is loaded
-      setTimeout(() => {
-        modifyInputToSelect();
-        addRefreshOptionsButton(); // Add the refresh button
-      }, 100);
-
-      isModalModified = true;
-    }
+    setTimeout(() => {
+      modifyInputToSelect();
+      addRefreshOptionsButton();
+    }, 100);
+    isModalModified = true;
   } else if (modalElement && !modalElement.classList.contains(openClass)) {
     isModalModified = false;
   }
 }
 
-// Enhanced observer setup
 const observer = new MutationObserver((mutations) => {
   for (const mutation of mutations) {
     if (
@@ -498,5 +405,4 @@ observer.observe(document.body, {
   subtree: true,
 });
 
-// Initial check
 checkIfModalIsOpen();
