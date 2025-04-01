@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ScenicWorld - RC ERPLY",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "retailCare-erply-extension",
 
   "background": {

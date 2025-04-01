@@ -171,6 +171,8 @@ async function modifyInputToSelect() {
     fog: transformedOptions ? transformedOptions.fog : [],
   };
 
+  const choicesInstances = []; // Store Choices instances for later updates
+
   function togglePostcodeVisibility(show) {
     const postcodeSelect = document.querySelector(
       "#modals select[id^='choice-select-'][id$='1']"
@@ -265,16 +267,68 @@ async function modifyInputToSelect() {
       }
 
       input.dataset.processed = "true";
+
+      // Initialize Choices and store the instance
+      const instance = new Choices(select, {
+        searchEnabled: true,
+        searchPlaceholderValue: "Type to search...",
+        removeItemButton: true,
+        searchFields: ["label"],
+        searchResultLimit: 10,
+        position: "bottom",
+        shouldSort: false,
+        searchChoices: true,
+        itemSelectText: "",
+        noChoicesText: "No options available",
+        noResultsText: "No results found",
+        callbackOnInit: function () {
+          console.log("Choices initialized for:", select.id);
+        },
+        fuseOptions: {
+          threshold: 0.0,
+          findAllMatches: true,
+          includeMatches: true,
+          ignoreLocation: true,
+          useExtendedSearch: true,
+          tokenize: true,
+          matchAllTokens: true,
+        },
+      });
+      choicesInstances.push({ select, instance, label });
     });
 
-  // Initialize Choices after DOM modifications
-  initializeChoices();
+  return choicesInstances; // Return instances for refresh
+}
+
+// Update Choices instances with new options
+function updateChoicesInstances(instances, newOptions) {
+  const selectOptions = {
+    country: newOptions ? newOptions.country : [],
+    postcode: newOptions ? newOptions.postcode : [],
+    fog: newOptions ? newOptions.fog : [],
+  };
+
+  instances.forEach(({ select, instance, label }) => {
+    const options = selectOptions[label] || selectOptions["country"];
+    if (options.length > 0 && options[0].value !== "") {
+      options.unshift({ value: "", label: `Select a ${label}`, id: 0 });
+    }
+
+    // Clear current options and set new ones
+    instance.clearStore();
+    instance.setChoices(options, "value", "label", true);
+    instance.refresh();
+  });
 }
 
 // Modal handling and refresh button (unchanged)
 let isModalModified = false;
+let choicesInstances = [];
 const modalId = "#modals";
 const openClass = "modal-open";
+
+const modalDialog = document.querySelector(".modal-dialog");
+const saleNotesClass = document.querySelector(".saleNotes");
 
 function addRefreshOptionsButton() {
   if (document.querySelector("#refresh-options-btn")) return;
@@ -330,7 +384,10 @@ function addRefreshOptionsButton() {
     try {
       localStorage.removeItem("salesNotesOptionsSW");
       salesNotesOptionsSW = await fetchOptions();
-      modifyInputToSelect();
+      const transformedOptions = transformApiResponse(salesNotesOptionsSW);
+
+      // Update existing Choices instances with new options
+      updateChoicesInstances(choicesInstances, transformedOptions);
 
       refreshBtn.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
@@ -376,13 +433,19 @@ async function checkIfModalIsOpen() {
     !isModalModified
   ) {
     loadChoicesCSS();
-    setTimeout(() => {
-      modifyInputToSelect();
-      addRefreshOptionsButton();
+    setTimeout(async () => {
+      choicesInstances = await modifyInputToSelect(); // Store instances
+
+      if (
+        document.querySelector(".modal-dialog")?.classList.contains("saleNotes")
+      ) {
+        addRefreshOptionsButton();
+      }
     }, 100);
     isModalModified = true;
   } else if (modalElement && !modalElement.classList.contains(openClass)) {
     isModalModified = false;
+    choicesInstances = []; // Clear instances when modal closes
   }
 }
 
